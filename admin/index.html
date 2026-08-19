@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CreatorPilot AI — Admin</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<style>
+  :root {
+    --primary: #6C4CF1;
+    --primary-dark: #4B2FD1;
+    --accent: #00D3AB;
+    --bg: #0F0F14;
+    --surface: #1A1A22;
+    --surface-hover: #232330;
+    --border: #2A2A36;
+    --text: #F5F5FA;
+    --text-dim: #9C9CB0;
+    --danger: #FF5C5C;
+    --success: #39D98A;
+    --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+  }
+  .shell { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 16px;
+    flex-shrink: 0;
+  }
+  .brand { font-weight: 800; font-size: 17px; letter-spacing: -0.02em; margin-bottom: 2px; }
+  .brand-sub { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 28px; }
+  .nav-item {
+    display: block; width: 100%; text-align: left; padding: 10px 12px; border-radius: 8px;
+    color: var(--text-dim); background: none; border: none; font-size: 14px; cursor: pointer;
+    margin-bottom: 2px; font-family: inherit;
+  }
+  .nav-item.active { background: var(--primary); color: white; font-weight: 600; }
+  .nav-item:hover:not(.active) { background: var(--surface-hover); color: var(--text); }
+  .main { flex: 1; padding: 32px 40px; max-width: 1100px; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .subtitle { color: var(--text-dim); font-size: 13px; margin-bottom: 28px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 32px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px;
+  }
+  .stat-value { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat-label { color: var(--text-dim); font-size: 12px; margin-top: 4px; }
+  .stat-value.accent { color: var(--accent); }
+  .stat-value.danger { color: var(--danger); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--text-dim); font-weight: 500; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  td { padding: 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge.open { background: rgba(255,92,92,0.15); color: var(--danger); }
+  .badge.reviewed { background: rgba(57,217,138,0.15); color: var(--success); }
+  .btn {
+    background: var(--primary); color: white; border: none; padding: 7px 14px;
+    border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .btn:hover { background: var(--primary-dark); }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-ghost:hover { background: var(--surface-hover); }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 22px; margin-bottom: 20px;
+  }
+  input {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 12px; border-radius: 8px; font-size: 13px; font-family: inherit; width: 100%;
+  }
+  label { font-size: 12px; color: var(--text-dim); display: block; margin-bottom: 6px; }
+  .field { margin-bottom: 14px; }
+  .empty { color: var(--text-dim); font-size: 13px; padding: 20px 0; text-align: center; }
+  .row { display: flex; gap: 12px; align-items: flex-end; }
+  .config-key { font-family: var(--mono); color: var(--accent); }
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; background: var(--surface);
+    border: 1px solid var(--border); padding: 12px 18px; border-radius: 10px; font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+// Points at your local backend by default. Change for staging/prod, or
+// wire an env-based build step later — kept as a single constant since
+// this is a no-build-step internal tool for now (spec section 16).
+const API_BASE = window.CREATORPILOT_API_BASE || "http://localhost:8000";
+
+// Dev-only bearer token, matches backend/app/core/auth.py's dev stub.
+// Phase 2 replaces this with a real admin login screen against Firebase Auth.
+const DEV_TOKEN = "dev-token";
+
+async function apiGet(path) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { Authorization: `Bearer ${DEV_TOKEN}` },
+  });
+  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+async function apiPost(path, body) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${DEV_TOKEN}` },
+    body: JSON.stringify(body || {}),
+  });
+  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+function Sidebar({ page, setPage }) {
+  const items = [
+    ["dashboard", "Dashboard"],
+    ["reports", "Reports"],
+    ["credits", "Credits"],
+    ["config", "Configuration"],
+  ];
+  return (
+    <div className="sidebar">
+      <div className="brand">CreatorPilot AI</div>
+      <div className="brand-sub">Admin</div>
+      {items.map(([key, label]) => (
+        <button
+          key={key}
+          className={`nav-item ${page === key ? "active" : ""}`}
+          onClick={() => setPage(key)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Dashboard() {
+  const [stats, setStats] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    apiGet("/v1/admin/stats").then(setStats).catch((e) => setError(e.message));
+  }, []);
+
+  if (error) return <div className="empty">Couldn't reach the backend: {error}</div>;
+  if (!stats) return <div className="empty">Loading…</div>;
+
+  return (
+    <>
+      <h1>Dashboard</h1>
+      <div className="subtitle">Live counts from this backend instance's in-memory metrics.</div>
+      <div className="grid">
+        <div className="stat-card">
+          <div className="stat-value">{stats.total_generations}</div>
+          <div className="stat-label">Total generations</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value accent">{stats.success_rate_pct}%</div>
+          <div className="stat-label">Success rate</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value danger">{stats.failed_generations}</div>
+          <div className="stat-label">Failed generations</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{stats.credits_consumed}</div>
+          <div className="stat-label">Credits consumed</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{stats.open_reports}</div>
+          <div className="stat-label">Open reports</div>
+        </div>
+      </div>
+      <div className="card">
+        <strong>Not shown yet</strong>
+        <div className="subtitle" style={{marginBottom: 0}}>
+          AI cost, storage usage, revenue, and subscriber counts require Firestore
+          aggregation and Google Play billing data — not available until those
+          are wired (Phases 10–11).
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Reports() {
+  const [reports, setReports] = useState([]);
+  const [filter, setFilter] = useState("open");
+  const [error, setError] = useState(null);
+
+  const load = useCallback(() => {
+    apiGet(`/v1/admin/reports${filter ? `?status=${filter}` : ""}`)
+      .then(setReports)
+      .catch((e) => setError(e.message));
+  }, [filter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const resolve = async (id) => {
+    await apiPost(`/v1/admin/reports/${id}/resolve`);
+    load();
+  };
+
+  return (
+    <>
+      <h1>Reports</h1>
+      <div className="subtitle">User-flagged AI outputs, reviewed here before any action is taken.</div>
+      <div style={{marginBottom: 16}}>
+        {["open", "reviewed", ""].map((s) => (
+          <button
+            key={s || "all"}
+            className={`btn ${filter === s ? "" : "btn-ghost"}`}
+            style={{marginRight: 8}}
+            onClick={() => setFilter(s)}
+          >
+            {s || "all"}
+          </button>
+        ))}
+      </div>
+      {error && <div className="empty">{error}</div>}
+      {!error && reports.length === 0 && <div className="empty">No reports in this view.</div>}
+      {!error && reports.length > 0 && (
+        <table>
+          <thead>
+            <tr><th>Job</th><th>Reason</th><th>Reported by</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody>
+            {reports.map((r) => (
+              <tr key={r.id}>
+                <td style={{fontFamily: "var(--mono)"}}>{r.job_id}</td>
+                <td>{r.reason}</td>
+                <td>{r.reported_by}</td>
+                <td><span className={`badge ${r.status}`}>{r.status}</span></td>
+                <td>
+                  {r.status === "open" && (
+                    <button className="btn" onClick={() => resolve(r.id)}>Mark reviewed</button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </>
+  );
+}
+
+function Credits() {
+  const [userId, setUserId] = useState("");
+  const [delta, setDelta] = useState("");
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+
+  const submit = async () => {
+    setError(null);
+    setResult(null);
+    try {
+      const res = await apiPost("/v1/admin/credits/adjust", {
+        user_id: userId,
+        delta: parseInt(delta, 10) || 0,
+      });
+      setResult(res);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  return (
+    <>
+      <h1>Credits</h1>
+      <div className="subtitle">Grant or deduct a user's credit balance manually. Never goes below zero.</div>
+      <div className="card" style={{maxWidth: 420}}>
+        <div className="field">
+          <label>User ID</label>
+          <input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="dev-user" />
+        </div>
+        <div className="field">
+          <label>Delta (positive to grant, negative to deduct)</label>
+          <input value={delta} onChange={(e) => setDelta(e.target.value)} placeholder="e.g. 50 or -20" />
+        </div>
+        <button className="btn" onClick={submit} disabled={!userId || !delta}>Apply adjustment</button>
+        {error && <div style={{color: "var(--danger)", marginTop: 12, fontSize: 13}}>{error}</div>}
+        {result && (
+          <div style={{marginTop: 12, fontSize: 13, color: "var(--text-dim)"}}>
+            {result.previous_balance} → <strong style={{color: "var(--text)"}}>{result.new_balance}</strong> credits
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function Config() {
+  const [creditConfig, setCreditConfig] = useState(null);
+  const [plans, setPlans] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    Promise.all([apiGet("/v1/admin/credit-config"), apiGet("/v1/admin/plans")])
+      .then(([cc, p]) => { setCreditConfig(cc); setPlans(p); })
+      .catch((e) => setError(e.message));
+  }, []);
+
+  if (error) return <div className="empty">{error}</div>;
+  if (!creditConfig || !plans) return <div className="empty">Loading…</div>;
+
+  return (
+    <>
+      <h1>Configuration</h1>
+      <div className="subtitle">
+        Read-only for now — editing writes back to this same config in Phase
+        10's Firestore-backed version.
+      </div>
+      <div className="card">
+        <strong>Credit costs</strong>
+        <table style={{marginTop: 12}}>
+          <tbody>
+            {Object.entries(creditConfig).map(([key, value]) => (
+              <tr key={key}>
+                <td className="config-key">{key}</td>
+                <td>{value} credits</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="card">
+        <strong>Plans</strong>
+        <table style={{marginTop: 12}}>
+          <thead><tr><th>Plan</th><th>Price / mo</th><th>Credits / mo</th><th>Watermark</th></tr></thead>
+          <tbody>
+            {plans.map((p) => (
+              <tr key={p.name}>
+                <td>{p.name}</td>
+                <td>₹{p.monthly_price_inr}</td>
+                <td>{p.monthly_credits}</td>
+                <td>{p.watermark ? "Yes" : "No"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+function App() {
+  const [page, setPage] = useState("dashboard");
+  return (
+    <div className="shell">
+      <Sidebar page={page} setPage={setPage} />
+      <div className="main">
+        {page === "dashboard" && <Dashboard />}
+        {page === "reports" && <Reports />}
+        {page === "credits" && <Credits />}
+        {page === "config" && <Config />}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
