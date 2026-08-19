@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from app.core.auth import CurrentUser, get_current_user
 from app.core.dependencies import get_orchestrator
 from app.core.logging import get_logger
+from app.core.rate_limit import GenerationRateLimiter, get_rate_limiter
 from app.repositories.project_repository import ProjectRepository, get_project_repository
 from app.schemas.campaign import (
     CampaignJobResponse,
@@ -29,7 +30,10 @@ async def create_campaign(
     orchestrator: Orchestrator = Depends(get_orchestrator),
     job_manager: JobManager = Depends(get_job_manager),
     project_repository: ProjectRepository = Depends(get_project_repository),
+    rate_limiter: GenerationRateLimiter = Depends(get_rate_limiter),
 ):
+    rate_limiter.check_and_record(user.uid)
+
     job_id = f"job_{uuid.uuid4().hex[:10]}"
     cost = credit_service.cost_for_outputs([o.value for o in request.outputs])
 
