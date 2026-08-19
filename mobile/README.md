@@ -49,3 +49,9 @@ no Firebase config needed for UI development.
 ```bash
 flutter test
 ```
+
+**Honesty note on the two newer test files** (`create_campaign_screen_test.dart`,
+`home_screen_test.dart`): they were written in a sandbox without the Flutter
+SDK installed, so they were never actually run. `splash_screen_test.dart`
+(the original) is the only one confirmed passing. Run `flutter test` locally
+and fix anything that doesn't compile before trusting the new ones.
