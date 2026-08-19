@@ -49,9 +49,8 @@ def test_create_campaign_success():
     )
     assert resp.status_code == 202
     body = resp.json()
-    assert body["status"] == "COMPLETED"
+    assert body["status"] == "QUEUED"  # Phase 6: async job, completes in background
 
     job_id = body["job_id"]
     result = client.get(f"/v1/generations/{job_id}", headers=_auth_headers())
-    assert result.status_code == 200
-    assert result.json()["poster_url"] is not None
+    assert result.status_code == 200  # job exists, may still be in progress
