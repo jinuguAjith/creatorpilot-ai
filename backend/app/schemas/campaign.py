@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class OutputType(str, Enum):
@@ -20,16 +20,23 @@ class GenerationStatus(str, Enum):
 
 
 class CampaignRequest(BaseModel):
-    description: str
-    industry: str
-    language: str = "English"
-    style: str
-    target_audience: str
-    offer_details: str = ""
-    location: str = ""
-    aspect_ratio: str = "9:16"
-    outputs: list[OutputType]
-    voiceover_language: str | None = None
+    description: str = Field(..., min_length=1, max_length=2000)
+    industry: str = Field(..., max_length=100)
+    language: str = Field(default="English", max_length=50)
+    style: str = Field(..., max_length=50)
+    target_audience: str = Field(..., max_length=300)
+    offer_details: str = Field(default="", max_length=500)
+    location: str = Field(default="", max_length=200)
+    aspect_ratio: str = Field(default="9:16", max_length=10)
+    outputs: list[OutputType] = Field(..., min_length=1, max_length=4)
+    voiceover_language: str | None = Field(default=None, max_length=50)
+
+    @field_validator("outputs")
+    @classmethod
+    def outputs_must_be_unique(cls, v: list[OutputType]) -> list[OutputType]:
+        if len(set(v)) != len(v):
+            raise ValueError("outputs must not contain duplicates")
+        return v
 
 
 class CampaignJobResponse(BaseModel):
@@ -50,5 +57,5 @@ class GenerationResultResponse(BaseModel):
 
 
 class ReportRequest(BaseModel):
-    job_id: str
-    reason: str
+    job_id: str = Field(..., max_length=100)
+    reason: str = Field(..., min_length=1, max_length=1000)

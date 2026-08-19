@@ -14,6 +14,7 @@ from app.core.logging import get_logger
 from app.repositories.project_repository import Project, ProjectRepository
 from app.schemas.campaign import CampaignRequest, GenerationResultResponse, GenerationStatus
 from app.services.credit_service import CreditService
+from app.services.metrics_service import MetricsService, get_metrics_service
 from app.services.orchestrator import ContentModerationError, Orchestrator
 
 logger = get_logger(__name__)
@@ -94,16 +95,19 @@ class JobManager:
                 hashtags=result.hashtags,
                 cta=result.cta,
             )
+            get_metrics_service().record_generation_success(credits_reserved)
             logger.info("job_completed", job_id=job_id)
 
         except ContentModerationError as exc:
             credit_service.refund(job_id)
             self._set_status(job_id, GenerationStatus.failed, error_message=str(exc))
+            get_metrics_service().record_generation_failure()
             logger.warning("job_failed_moderation", job_id=job_id)
 
         except Exception as exc:  # noqa: BLE001 — any failure refunds credits
             credit_service.refund(job_id)
             self._set_status(job_id, GenerationStatus.failed, error_message="Generation failed")
+            get_metrics_service().record_generation_failure()
             logger.error("job_failed", job_id=job_id, error=str(exc))
 
 
