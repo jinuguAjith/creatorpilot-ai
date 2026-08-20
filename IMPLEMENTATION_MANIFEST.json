@@ -1,0 +1,26 @@
+{
+  "description": "CreatorPilot AI real Gemini/Veo backend implementation",
+  "github_push": false,
+  "files": [
+    "backend/.env.example",
+    "backend/Dockerfile",
+    "backend/app/core/config.py",
+    "backend/app/core/dependencies.py",
+    "backend/app/main.py",
+    "backend/app/providers/gemini_image_provider.py",
+    "backend/app/providers/gemini_text_provider.py",
+    "backend/app/providers/gemini_video_provider.py",
+    "backend/app/providers/interfaces.py",
+    "backend/app/services/media_storage.py",
+    "backend/app/services/orchestrator.py",
+    "backend/app/services/video_composer.py",
+    "backend/requirements.txt",
+    "docs/REAL_AI_IMPLEMENTATION.md"
+  ],
+  "important": [
+    "Replace the corresponding files in your local repo.",
+    "Keep your existing mock_providers.py for tests/local fallback.",
+    "Run formatting/tests before pushing.",
+    "The Gemini API key belongs only in backend/.env or your secret manager."
+  ]
+}
